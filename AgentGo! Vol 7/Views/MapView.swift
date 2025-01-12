@@ -6,72 +6,244 @@ struct MapView: View {
     @EnvironmentObject private var viewModel: AppViewModel
     @State private var position: MapCameraPosition = .automatic
     @State private var selectedProperty: Property?
-    @State private var showingNavigationSheet = false
+    @State private var showingPropertyDetails = false
+    @State private var showsUserLocation = true
+    @State private var visibleProperties: [Property] = []
+    @State private var isUpdatingProperties = false
+    @State private var lastUpdateTime: Date = Date()
+    @State private var updateWorkItem: DispatchWorkItem?
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private let updateThrottleInterval: TimeInterval = 0.5
+    private let updateQueue = DispatchQueue(label: "com.agentgo.mapupdate", qos: .userInitiated)
     
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                Map(position: $position, selection: $selectedProperty) {
-                    ForEach(viewModel.properties) { property in
-                        Marker(property.streetAddress, coordinate: property.coordinates)
-                            .tint(Color.customAccent)
-                    }
+            ZStack {
+                MapContentView(
+                    position: $position,
+                    selectedProperty: $selectedProperty,
+                    showingPropertyDetails: $showingPropertyDetails,
+                    visibleProperties: $visibleProperties
+                )
+                .onChange(of: viewModel.properties) { _, newProperties in
+                    queuePropertyUpdate(from: newProperties)
                 }
-                .mapControls {
-                    MapUserLocationButton()
-                    MapCompass()
-                    MapScaleView()
+                .onChange(of: position) { _, _ in
+                    queuePropertyUpdate(from: viewModel.properties)
+                }
+                .onDisappear {
+                    // Cancel any pending updates
+                    updateWorkItem?.cancel()
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    ProfileButton()
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
                 }
                 
-                // Navigation Button
-                if let nextOpenHome = getNextOpenHome() {
-                    NavigationButton(openHome: nextOpenHome)
-                        .padding()
-                        .padding(.bottom, 60) // Add extra padding for tab bar
+                MapToolbarContent(centerMapAction: centerMapOnProperties)
+            }
+        }
+    }
+    
+    private func queuePropertyUpdate(from properties: [Property]) {
+        // Cancel any pending update
+        updateWorkItem?.cancel()
+        
+        let now = Date()
+        guard now.timeIntervalSince(lastUpdateTime) >= updateThrottleInterval else { return }
+        
+        // Create new work item
+        let workItem = DispatchWorkItem { [properties] in
+            guard !isUpdatingProperties else { return }
+            isUpdatingProperties = true
+            lastUpdateTime = now
+            
+            // Perform update on background queue
+            updateQueue.async {
+                let updatedProperties = calculateVisibleProperties(from: properties)
+                
+                // Update UI on main queue
+                DispatchQueue.main.async {
+                    visibleProperties = updatedProperties
+                    isUpdatingProperties = false
                 }
             }
-            .navigationTitle("Map")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        withAnimation {
-                            centerMapOnProperties()
-                        }
-                    } label: {
-                        Image(systemName: "map.circle")
-                            .foregroundStyle(Color.customAccent)
-                    }
-                }
-            }
+        }
+        
+        // Store reference to work item
+        updateWorkItem = workItem
+        
+        // Schedule work item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+    }
+    
+    private func calculateVisibleProperties(from properties: [Property]) -> [Property] {
+        guard let region = position.region else { 
+            return properties
+        }
+        
+        let padding: Double = 1.5
+        let minLat = region.center.latitude - (region.span.latitudeDelta * padding)
+        let maxLat = region.center.latitude + (region.span.latitudeDelta * padding)
+        let minLon = region.center.longitude - (region.span.longitudeDelta * padding)
+        let maxLon = region.center.longitude + (region.span.longitudeDelta * padding)
+        
+        return properties.filter { property in
+            let lat = property.coordinates.latitude
+            let lon = property.coordinates.longitude
+            return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon
         }
     }
     
     private func centerMapOnProperties() {
         guard !viewModel.properties.isEmpty else { return }
         
-        let coordinates = viewModel.properties.map { $0.coordinates }
-        let minLat = coordinates.map { $0.latitude }.min() ?? 0
-        let maxLat = coordinates.map { $0.latitude }.max() ?? 0
-        let minLon = coordinates.map { $0.longitude }.min() ?? 0
-        let maxLon = coordinates.map { $0.longitude }.max() ?? 0
-        
-        let center = CLLocationCoordinate2D(
-            latitude: (minLat + maxLat) / 2,
-            longitude: (minLon + maxLon) / 2
-        )
-        
-        let span = MKCoordinateSpan(
-            latitudeDelta: (maxLat - minLat) * 1.5,
-            longitudeDelta: (maxLon - minLon) * 1.5
-        )
-        
-        position = .region(MKCoordinateRegion(center: center, span: span))
+        // Calculate bounds on background queue
+        updateQueue.async {
+            let coordinates = viewModel.properties.map { $0.coordinates }
+            let minLat = coordinates.map { $0.latitude }.min() ?? 0
+            let maxLat = coordinates.map { $0.latitude }.max() ?? 0
+            let minLon = coordinates.map { $0.longitude }.min() ?? 0
+            let maxLon = coordinates.map { $0.longitude }.max() ?? 0
+            
+            let center = CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLon + maxLon) / 2
+            )
+            
+            let span = MKCoordinateSpan(
+                latitudeDelta: (maxLat - minLat) * 1.5,
+                longitudeDelta: (maxLon - minLon) * 1.5
+            )
+            
+            // Update UI on main queue
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut) {
+                    position = .region(MKCoordinateRegion(center: center, span: span))
+                }
+                
+                // Queue property update after animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    queuePropertyUpdate(from: viewModel.properties)
+                }
+            }
+        }
     }
     
     private func getNextOpenHome() -> ScheduledOpenHome? {
         let today = Calendar.current.startOfDay(for: Date())
         return viewModel.schedules[today]?.openHomes.first { openHome in
             openHome.startTime > Date()
+        }
+    }
+}
+
+private struct MapContentView: View {
+    @EnvironmentObject private var viewModel: AppViewModel
+    @Binding var position: MapCameraPosition
+    @Binding var selectedProperty: Property?
+    @Binding var showingPropertyDetails: Bool
+    @Binding var visibleProperties: [Property]
+    
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Map(position: $position, selection: $selectedProperty) {
+                ForEach(visibleProperties) { property in
+                    Annotation(property.streetAddress, coordinate: property.coordinates) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(Color.customAccent)
+                            .background(Color.white.clipShape(Circle()))
+                    }
+                    .tag(property)
+                }
+            }
+            .mapStyle(.standard(elevation: .flat))
+            .mapControls {
+                MapUserLocationButton()
+                MapCompass()
+                MapScaleView()
+            }
+            
+            if let nextOpenHome = getNextOpenHome() {
+                NavigationButton(openHome: nextOpenHome)
+                    .padding()
+                    .padding(.bottom, 60)
+            }
+        }
+        .sheet(
+            item: $selectedProperty,
+            onDismiss: { selectedProperty = nil }
+        ) { property in
+            PropertyDetailsSheet(property: property)
+                .presentationDetents([.height(UIScreen.main.bounds.height * 0.9)])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled)
+                .presentationCornerRadius(25)
+                .interactiveDismissDisabled(false)
+        }
+    }
+    
+    private func getNextOpenHome() -> ScheduledOpenHome? {
+        let today = Calendar.current.startOfDay(for: Date())
+        return viewModel.schedules[today]?.openHomes.first { openHome in
+            openHome.startTime > Date()
+        }
+    }
+}
+
+private struct MapViewContent: View {
+    @EnvironmentObject private var viewModel: AppViewModel
+    @Binding var position: MapCameraPosition
+    @Binding var selectedProperty: Property?
+    @Binding var showingPropertyDetails: Bool
+    
+    var body: some View {
+        Map(position: $position, selection: $selectedProperty) {
+            ForEach(viewModel.properties) { property in
+                Annotation(property.streetAddress, coordinate: property.coordinates) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(Color.customAccent)
+                        .background(Color.white.clipShape(Circle()))
+                }
+                .tag(property)
+            }
+        }
+        .mapStyle(.standard(elevation: .flat))
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
+            MapScaleView()
+        }
+        .onChange(of: selectedProperty) { _, newValue in
+            withAnimation {
+                showingPropertyDetails = newValue != nil
+            }
+        }
+    }
+}
+
+private struct MapToolbarContent: ToolbarContent {
+    let centerMapAction: () -> Void
+    
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button {
+                withAnimation {
+                    centerMapAction()
+                }
+            } label: {
+                Image(systemName: "map.circle")
+                    .foregroundStyle(Color.customAccent)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+            }
         }
     }
 }

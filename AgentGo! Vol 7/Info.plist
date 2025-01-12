@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>GIDClientID</key>
+    <string>[PASTE YOUR CLIENT ID HERE]</string>
+    <key>branch_key</key>
+    <dict>
+        <key>live</key>
+        <string>key_live_jFpXq421taIKqmzigZOG6hfauCpR5f7G</string>
+        <key>test</key>
+        <string>key_test_jFpXq421taIKqmzigZOG6hfauCpR5f7G</string>
+    </dict>
+    <key>branch_universal_link_domains</key>
+    <array>
+        <string>zf994.app.link</string>
+        <string>zf994-alternate.app.link</string>
+    </array>
+    <key>branch_app_domain</key>
+    <string>zf994.app.link</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>agentgo</string>
+            </array>
+            <key>CFBundleURLName</key>
+            <string>com.AgentGo.App</string>
+        </dict>
+    </array>
+    <key>CFBundleIdentifier</key>
+    <string>com.AgentGo.App</string>
+    <key>branch_match_type</key>
+    <string>unique</string>
+    <key>branch_enable_log</key>
+    <true/>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>AgentGo needs access to your photo library to set your profile picture.</string>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen.storyboard</string>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIImageName</key>
+        <string>LaunchScreen</string>
+        <key>UIImageRespectsSafeAreaInsets</key>
+        <false/>
+    </dict>
+</dict>
+</plist> 

@@ -18,6 +18,7 @@ struct PropertyFormView: View {
     let mode: Mode
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: AppViewModel
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var streetAddress = ""
     @State private var suburb = ""
@@ -25,9 +26,12 @@ struct PropertyFormView: View {
     @State private var clientLastName = ""
     @State private var clientPhone = ""
     @State private var openHomeDuration: Int
-    @State private var bufferBefore = 5
-    @State private var bufferAfter = 5
+    @State private var bufferBefore: Int
+    @State private var bufferAfter: Int
     @State private var selectedLocation: CLLocationCoordinate2D?
+    @State private var bedrooms = 0
+    @State private var bathrooms = 0
+    @State private var parking = 0
     
     private var editingProperty: Property? {
         if case let .edit(property) = mode {
@@ -38,7 +42,11 @@ struct PropertyFormView: View {
     
     init(mode: Mode) {
         self.mode = mode
-        _openHomeDuration = State(initialValue: AppViewModel().defaultDuration)
+        
+        // Initialize with default values
+        _openHomeDuration = State(initialValue: 30)  // Default value
+        _bufferBefore = State(initialValue: 5)       // Default value
+        _bufferAfter = State(initialValue: 5)        // Default value
     }
     
     var body: some View {
@@ -110,6 +118,8 @@ struct PropertyFormView: View {
                     Text("Buffer times help ensure you have enough time to travel between properties.")
                 }
             }
+            .background(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"))
+            .toolbarBackground(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"), for: .navigationBar)
             .navigationTitle(mode == .add ? "Add Property" : "Edit Property")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -127,6 +137,13 @@ struct PropertyFormView: View {
                 }
             }
             .onAppear {
+                // Update values from viewModel
+                if editingProperty == nil {
+                    openHomeDuration = viewModel.defaultDuration
+                    bufferBefore = viewModel.defaultBuffer
+                    bufferAfter = viewModel.defaultBuffer
+                }
+                
                 if let property = editingProperty {
                     streetAddress = property.streetAddress
                     suburb = property.suburb
@@ -137,6 +154,9 @@ struct PropertyFormView: View {
                     bufferBefore = property.bufferBefore
                     bufferAfter = property.bufferAfter
                     selectedLocation = property.coordinates
+                    bedrooms = property.bedrooms
+                    bathrooms = property.bathrooms
+                    parking = property.parking
                 }
             }
         }
@@ -159,7 +179,10 @@ struct PropertyFormView: View {
             clientPhone: clientPhone,
             openHomeDuration: openHomeDuration,
             bufferBefore: bufferBefore,
-            bufferAfter: bufferAfter
+            bufferAfter: bufferAfter,
+            bedrooms: bedrooms,
+            bathrooms: bathrooms,
+            parking: parking
         )
         
         if mode.isEditing {

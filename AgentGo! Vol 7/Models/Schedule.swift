@@ -1,12 +1,13 @@
 import Foundation
+import CoreLocation
 
 struct Schedule: Identifiable, Codable {
     let id: UUID
-    var date: Date
+    let date: Date?
     var openHomes: [ScheduledOpenHome]
     var isAutoScheduled: Bool
     
-    init(id: UUID = UUID(), date: Date, openHomes: [ScheduledOpenHome], isAutoScheduled: Bool = true) {
+    init(id: UUID = UUID(), date: Date? = nil, openHomes: [ScheduledOpenHome] = [], isAutoScheduled: Bool = false) {
         self.id = id
         self.date = date
         self.openHomes = openHomes

@@ -4,6 +4,7 @@ struct ManualScheduleView: View {
     let date: Date
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: AppViewModel
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var selectedProperty: Property?
     @State private var startTime: Date
@@ -12,7 +13,7 @@ struct ManualScheduleView: View {
     
     init(date: Date) {
         self.date = date
-        _startTime = State(initialValue: AppViewModel().getDefaultStartTime(for: date))
+        _startTime = State(initialValue: date)
     }
     
     var body: some View {
@@ -61,6 +62,8 @@ struct ManualScheduleView: View {
                     }
                 }
             }
+            .background(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"))
+            .toolbarBackground(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"), for: .navigationBar)
             .navigationTitle("Manual Schedule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -83,6 +86,7 @@ struct ManualScheduleView: View {
             }
             .onAppear {
                 loadExistingSchedules()
+                startTime = viewModel.getDefaultStartTime(for: date)
             }
         }
     }

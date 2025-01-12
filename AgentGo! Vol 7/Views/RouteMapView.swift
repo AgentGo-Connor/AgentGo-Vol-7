@@ -24,6 +24,7 @@ struct RouteMapView: View {
                     .stroke(.blue, lineWidth: 3)
             }
         }
+        .mapStyle(.standard(elevation: .flat))
         .mapControls {
             MapCompass()
             MapScaleView()

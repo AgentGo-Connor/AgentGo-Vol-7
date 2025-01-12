@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "source": "agentgo",
+    "predeploy": []
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

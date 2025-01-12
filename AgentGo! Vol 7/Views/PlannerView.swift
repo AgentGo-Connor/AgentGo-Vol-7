@@ -8,6 +8,8 @@ struct PlannerView: View {
     @State private var showingAutoSchedule = false
     @State private var showingManualSchedule = false
     @State private var showingResetOptions = false
+    @State private var isEditMode: EditMode = .inactive
+    @Environment(\.colorScheme) private var colorScheme
     
     private var schedule: Schedule? {
         viewModel.schedules[Calendar.current.startOfDay(for: selectedDate)]
@@ -41,8 +43,13 @@ struct PlannerView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Planner")
+            .background(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"))
+            .toolbarBackground(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"), for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    ProfileButton()
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack {
                         if schedule != nil {
@@ -85,6 +92,7 @@ struct PlannerView: View {
                     Text("Choose how you would like to reset the schedule")
                 }
             )
+            .environment(\.editMode, $isEditMode)
         }
     }
 }

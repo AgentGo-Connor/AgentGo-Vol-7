@@ -6,6 +6,7 @@ struct AutoScheduleView: View {
     let date: Date
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: AppViewModel
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var startTime: Date
     @State private var startingProperty: Property?
@@ -15,7 +16,7 @@ struct AutoScheduleView: View {
     
     init(date: Date) {
         self.date = date
-        _startTime = State(initialValue: AppViewModel().getDefaultStartTime(for: date))
+        _startTime = State(initialValue: date)
     }
     
     var body: some View {
@@ -83,6 +84,8 @@ struct AutoScheduleView: View {
                     Text("Properties")
                 }
             }
+            .background(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"))
+            .toolbarBackground(colorScheme == .dark ? Color(.systemBackground) : Color(hex: "f2efeb"), for: .navigationBar)
             .navigationTitle("Auto Schedule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -106,9 +109,10 @@ struct AutoScheduleView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
-        }
-        .onAppear {
-            loadExistingSchedule()
+            .onAppear {
+                startTime = viewModel.getDefaultStartTime(for: date)
+                loadExistingOpenHomes()
+            }
         }
     }
     
@@ -116,11 +120,13 @@ struct AutoScheduleView: View {
         !selectedProperties.isEmpty && startingProperty != nil
     }
     
-    private func loadExistingSchedule() {
+    private func loadExistingOpenHomes() {
         let startOfDay = Calendar.current.startOfDay(for: date)
         if let schedule = viewModel.schedules[startOfDay] {
             // Only keep manually scheduled open homes
             existingOpenHomes = schedule.openHomes.filter { _ in !schedule.isAutoScheduled }
+        } else {
+            existingOpenHomes = []
         }
     }
     
